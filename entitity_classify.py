@@ -14,39 +14,39 @@ from entity_type_classifier.utils import get_tokenizer_mlm, set_seed, get_raw_te
 from entity_type_classifier.virtual_prompt import VirutalPrompt
 
 
-def train_sub_model(dataset_name=None, predict=None, subj_obj_pair_id=None, reload_data=True, train=True,
-                    eval_kpl=False, evaluate_sub_model=True):
+def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_pair_id=None, reload_data=True,
+                    train=True, vec_sim = None , rel_length = None,
+                    eval_kpl=False, evaluate_sub_model=True, learning_rate=None, lr_temp=None, num_train_epochs=None):
     model_type = 'roberta'
-    model_name = 'roberta-base'
+    model_name = 'roberta-' + model_scale
     tokenizer, mlm = get_tokenizer_mlm(model_type, model_name)
     n_gpu = torch.cuda.device_count()
 
     data_dir = "./datasets/" + dataset_name
     output_dir = "./results/" + dataset_name
-    per_gpu_train_batch_size = 8
+    per_gpu_train_batch_size = 8 if model_scale == "base" else 4
     gradient_accumulation_steps = 1
-    max_seq_length = 256
+    max_seq_length = 512
     warmup_steps = 500
-    learning_rate = 3e-5
-    learning_rate_for_new_token = 1e-5
-    num_train_epochs = 5
+    learning_rate = learning_rate
+    num_train_epochs = num_train_epochs
     weight_decay = 1e-2
     adam_epsilon = 1e-6
-    lr_temp = 1e-5
+    lr_temp = lr_temp
     max_grad_norm = 1.0
-    vec_sim = "mm"
-    rel_length = 3
     set_seed(123)
 
     raw_temp = get_raw_temps(data_dir)
     virtual_prompt = VirutalPrompt(raw_temp=raw_temp, tokenizer=tokenizer, mlm=mlm, rel_length=rel_length,
                                    datadir=data_dir)
+    if predict == 'subj' and len(virtual_prompt.subj2id) == 1:
+        return 'None'
     subj_obj_pair = None
     if not subj_obj_pair_id == None:
         subj_obj_pair = virtual_prompt.id2subj_obj_pair[subj_obj_pair_id]
     if predict == "rel":
-        if virtual_prompt.subj_obj_pair2id[subj_obj_pair] == None:
-            return None
+        if virtual_prompt.subj_obj_pair2rel2id[subj_obj_pair] == None:
+            return "None"
     # """
     if reload_data:
         dataset = EntityPromptDataset(
@@ -133,7 +133,7 @@ def train_sub_model(dataset_name=None, predict=None, subj_obj_pair_id=None, relo
     optimizer4temp, scheduler4temp = get_optimizer4temp(model, lr_temp)
     criterion = nn.CrossEntropyLoss()
     mx_res = 0.0
-    best_model_path = ''
+    best_model_path = output_dir + "/best_models/" + predict + str(subj_obj_pair) + ".pkl"
     best_model = dict()
     best_epoch = 0
     his = {
@@ -156,7 +156,6 @@ def train_sub_model(dataset_name=None, predict=None, subj_obj_pair_id=None, relo
               " max_seq_length=", max_seq_length,
               ' warmup_steps=', warmup_steps,
               ' learning_rate=', learning_rate,
-              ' learning_rate_for_new_token=', learning_rate_for_new_token,
               ' num_train_epochs=', num_train_epochs,
               ' weight_decay=', weight_decay,
               ' adam_epsilon=', adam_epsilon,
@@ -208,10 +207,7 @@ def train_sub_model(dataset_name=None, predict=None, subj_obj_pair_id=None, relo
                 # best_model_path = output_dir + "/" + predict+str(subj_obj_pair)+str(datetime.datetime.now()) + 'parameter' + str(epoch) + ".pkl"
                 best_model = model.state_dict()
                 best_epoch = epoch
-                # torch.save(best_model, best_model_path)
-            # break
-        best_model_path = output_dir + "/best_models/" + predict + str(subj_obj_pair) + ".pkl"
-        torch.save(best_model, best_model_path)
+                torch.save(best_model, best_model_path)
         for k, v in his.items():
             print(k, v)
 
@@ -225,59 +221,63 @@ def train_sub_model(dataset_name=None, predict=None, subj_obj_pair_id=None, relo
         return best_model_path
 
 
-def evaluate_sub_model(dataset_name, subj_model_path, obj_model_path, rel_model_path, eval_set):
+def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_model_path, obj_model_path, rel_model_path, eval_set):
     model_type = 'roberta'
-    model_name = 'roberta-base'
+    model_name = 'roberta-' + model_scale
     tokenizer, mlm = get_tokenizer_mlm(model_type, model_name)
 
     data_dir = "./datasets/" + dataset_name
     output_dir = "./results/" + dataset_name
     temp_dir = output_dir + "/data_by_pairs"
-    per_gpu_train_batch_size = 8
+    per_gpu_train_batch_size = 8 if model_scale == "base" else 4
     n_gpu = torch.cuda.device_count()
     train_batch_size = per_gpu_train_batch_size * n_gpu
-    vec_sim = "mm"
-    rel_length = 3
-    max_seq_length = 256
+    max_seq_length = 512
     set_seed(123)
 
     raw_temp = get_raw_temps(data_dir)
     virtual_prompt = VirutalPrompt(raw_temp=raw_temp, tokenizer=tokenizer, mlm=mlm, rel_length=rel_length,
                                    datadir=data_dir)
-    subj_dataset = EntityPromptDataset(
-        predict='subj',
-        subj_obj_pair=None,
-        path=data_dir,
-        name=eval_set,
-        max_seq_length=max_seq_length,
-        rel_length=rel_length,
-        virtual_prompt=virtual_prompt,
-        tokenizer=tokenizer)
-    subj_sampler = SequentialSampler(subj_dataset)
-    subj_dataloader = DataLoader(subj_dataset, sampler=subj_sampler, batch_size=train_batch_size // 2)
-    subj_model = ETypePromptModel(mlm=mlm, virtualprompt=virtual_prompt, similarity=vec_sim, predict="subj",
-                                  subj_obj_pair=None)
-    if torch.cuda.device_count() > 1:
-        subj_model = torch.nn.DataParallel(subj_model)
-        subj_model.cuda()
-    subj_model.load_state_dict(torch.load(subj_model_path), strict=False)
-    subj_model.eval()
-    subj_scores = []
 
-    with torch.no_grad():
-        for batch in iter(tqdm(subj_dataloader, desc="Val Subj Iteration")):
-            for key, tensor in batch.items():
-                batch[key] = tensor.cuda()
-            logits = subj_model(**batch)
-            # labels = batch['labels'].detach().cpu().tolist()
-            subj_scores.append(logits.cpu().detach())
-        subj_scores = torch.cat(subj_scores, 0)  # 把不同的batch归到一起
-        subj_scores = subj_scores.detach().cpu().numpy()
-        # np.save("scores.npy", scores)
-        # np.save("all_labels.npy", all_labels)
+    # predict subject types
+    if subj_model_path == 'None':
+        pass
+    else:
+        subj_dataset = EntityPromptDataset(
+            predict='subj',
+            subj_obj_pair=None,
+            path=data_dir,
+            name=eval_set,
+            max_seq_length=max_seq_length,
+            rel_length=rel_length,
+            virtual_prompt=virtual_prompt,
+            tokenizer=tokenizer)
+        subj_sampler = SequentialSampler(subj_dataset)
+        subj_dataloader = DataLoader(subj_dataset, sampler=subj_sampler, batch_size=train_batch_size // 2)
+        subj_model = ETypePromptModel(mlm=mlm, virtualprompt=virtual_prompt, similarity=vec_sim, predict="subj",
+                                      subj_obj_pair=None)
+        if torch.cuda.device_count() > 1:
+            subj_model = torch.nn.DataParallel(subj_model)
+            subj_model.cuda()
+        subj_model.load_state_dict(torch.load(subj_model_path), strict=False)
+        subj_model.eval()
+        subj_scores = []
 
-        subj_pred = np.argmax(subj_scores, axis=-1)
+        with torch.no_grad():
+            for batch in iter(tqdm(subj_dataloader, desc="Val Subj Iteration")):
+                for key, tensor in batch.items():
+                    batch[key] = tensor.cuda()
+                logits = subj_model(**batch)
+                # labels = batch['labels'].detach().cpu().tolist()
+                subj_scores.append(logits.cpu().detach())
+            subj_scores = torch.cat(subj_scores, 0)  # 把不同的batch归到一起
+            subj_scores = subj_scores.detach().cpu().numpy()
+            # np.save("scores.npy", scores)
+            # np.save("all_labels.npy", all_labels)
 
+            subj_pred = np.argmax(subj_scores, axis=-1)
+
+    # predict object types
     obj_dataset = EntityPromptDataset(
         predict="obj",
         subj_obj_pair=None,
@@ -316,15 +316,16 @@ def evaluate_sub_model(dataset_name, subj_model_path, obj_model_path, rel_model_
     for pair in virtual_prompt.subj_obj_pair2id.keys():
         subj_obj_pair2data[pair] = []
 
+    # predict relation type according to subj-obj pairs
     total_gold, total_guess, total_correct = 0, 0, 0
-
+    # put data into seperate files first
     raw_data = collect_raw_data(data_dir + "/" + eval_set + "-truncate.json")
     for index, item in enumerate(raw_data):
-        item_subj_pred = subj_pred[index]
+        item_subj_pred = 0 if subj_model_path == 'None' else subj_pred[index]
         item_obj_pred = obj_pred[index]
         subj_obj_pair = (virtual_prompt.id2subj[item_subj_pred], virtual_prompt.id2obj[item_obj_pred])
-        if subj_obj_pair not in virtual_prompt.subj_obj_pair2id.keys() or item['relation'] not in \
-                virtual_prompt.subj_obj_pair2rel2id[subj_obj_pair].keys():
+        if subj_obj_pair not in virtual_prompt.subj_obj_pair2id.keys() or virtual_prompt.subj_obj_pair2rel2id[
+            subj_obj_pair] == None or item['relation'] not in virtual_prompt.subj_obj_pair2rel2id[subj_obj_pair].keys():
             # at this point, our guess is no_relation
             if item['relation'] == 'no_relation':
                 continue
@@ -332,13 +333,16 @@ def evaluate_sub_model(dataset_name, subj_model_path, obj_model_path, rel_model_
                 total_gold += 1
         else:
             subj_obj_pair2data[subj_obj_pair].append(item)
-
+    # load data from file
     for pair in virtual_prompt.subj_obj_pair2id.keys():
         subj_obj_pair_file = temp_dir + "/" + str(pair) + "-truncate.json"
         with open(subj_obj_pair_file, 'w', encoding='utf-8') as f:
             json.dump(subj_obj_pair2data[pair], f)
     print(total_gold, total_guess, total_correct)
     for index, pair in virtual_prompt.id2subj_obj_pair.items():
+        if rel_model_path[index] == "None":
+            # the prediction and gold-std is both no_relation for each item
+            continue
         rel_dataset = EntityPromptDataset(
             predict="rel",
             subj_obj_pair=pair,
@@ -348,6 +352,8 @@ def evaluate_sub_model(dataset_name, subj_model_path, obj_model_path, rel_model_
             rel_length=rel_length,
             virtual_prompt=virtual_prompt,
             tokenizer=tokenizer)
+        if len(rel_dataset) == 0:
+            continue
         rel_sampler = SequentialSampler(rel_dataset)
         rel_dataloader = DataLoader(rel_dataset, sampler=rel_sampler, batch_size=train_batch_size // 2)
         rel_model = ETypePromptModel(mlm=mlm, virtualprompt=virtual_prompt, similarity=vec_sim, predict="rel",
@@ -397,21 +403,31 @@ if __name__ == "__main__":
     OBJ = False
     REL = True
     EVAL = True
-    dataset_name = "retacred"
+    model_scale = "base"
+    dataset_name = "tacrev"
+    vec_sim = "mm"
+    rel_length = 2
     eval_set = "test"
-    model_path = "best-models.txt"
+    model_path = "./results/" + dataset_name + "/best-models.txt"
+    learning_rate = 3e-5 if model_scale == "base" else 1e-4
+    lr_temp = 1e-5 if model_scale == "base" else 3e-5
+    num_epoch = 5
     if SUBJ:
-        subj_model = train_sub_model(dataset_name=dataset_name, predict='subj')
+        subj_model = train_sub_model(vec_sim=vec_sim,rel_length=rel_length,model_scale=model_scale, dataset_name=dataset_name, predict='subj',
+                                     learning_rate=learning_rate, lr_temp=lr_temp, num_train_epochs=num_epoch)
         with open(model_path, 'a', encoding='utf-8') as f:
             f.write(subj_model + "\n")
     if OBJ:
-        obj_model = train_sub_model(dataset_name=dataset_name, predict='obj')
+        obj_model = train_sub_model(vec_sim=vec_sim,rel_length=rel_length,model_scale=model_scale, dataset_name=dataset_name, predict='obj',
+                                    learning_rate=learning_rate, lr_temp=lr_temp, num_train_epochs=num_epoch)
         with open(model_path, 'a', encoding='utf-8') as f:
             f.write(obj_model + "\n")
     if REL:
         rel_models = []
-        for subj_obj_pair_id in range(5, 27):
-            rel_model = train_sub_model(dataset_name=dataset_name, predict='rel', subj_obj_pair_id=subj_obj_pair_id)
+        for subj_obj_pair_id in range(0, 27):
+            rel_model = train_sub_model(vec_sim=vec_sim,rel_length=rel_length,model_scale=model_scale, dataset_name=dataset_name, predict='rel',
+                                        subj_obj_pair_id=subj_obj_pair_id, learning_rate=learning_rate, lr_temp=lr_temp,
+                                        num_train_epochs=num_epoch * 3)
             rel_models.append(rel_model)
             with open(model_path, 'a', encoding='utf-8') as f:
                 f.write(rel_model + "\n")
@@ -422,4 +438,4 @@ if __name__ == "__main__":
                 line = line.rstrip()
                 if len(line) > 0:
                     models.append(line)
-        evaluate_sub_model(dataset_name, models[0], models[1], models[2:], eval_set)
+        evaluate_sub_model(vec_sim,rel_length,model_scale, dataset_name, models[0], models[1], models[2:], eval_set)

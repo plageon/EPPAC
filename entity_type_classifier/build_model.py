@@ -40,32 +40,19 @@ class ETypePromptModel(torch.nn.Module):
 
     def vector_similarity(self, batchs):
         logits = []
-        if True:
-            for batch in batchs:
-                if self.similarity == "mm":
-                    out = [
-                        torch.sum(torch.mm(batch, self.label2embed[i].transpose(1, 0)).diag(), dim=(0,), keepdim=True)
-                        for i in range(self.num_classes)]
-                elif self.similarity == "cos":
-                    out = [torch.sum(self.cos(batch, self.label2embed[i]), dim=(0,), keepdim=True) for i
-                           in range(self.num_classes)]
-                else:
-                    raise ValueError("unknown similiarty")
-                out = torch.cat(out, 0)
-                logits.append(out)
-            logits = torch.stack(logits, 0)
-        else:
-            hidden_states_mask = batchs.view(batchs.size(0), -1)
+        for batch in batchs:
             if self.similarity == "mm":
-                logits = torch.mm(hidden_states_mask, self.subj2embed.transpose(1, 0))
+                out = [
+                    torch.sum(torch.mm(batch, self.label2embed[i].transpose(1, 0)).diag(), dim=(0,), keepdim=True)
+                    for i in range(self.num_classes)]
             elif self.similarity == "cos":
-                for batch in hidden_states_mask:
-                    out = [self.cos(batch, self.label2embed[i]) for i in range(self.num_classes)]
-                    out = torch.cat(out, 0)
-                    logits.append(out)
-                logits = torch.stack(logits, 0)
+                out = [torch.sum(self.cos(batch, self.label2embed[i]), dim=(0,), keepdim=True) for i
+                       in range(self.num_classes)]
             else:
                 raise ValueError("unknown similiarty")
+            out = torch.cat(out, 0)
+            logits.append(out)
+        logits = torch.stack(logits, 0)
 
         return logits
 

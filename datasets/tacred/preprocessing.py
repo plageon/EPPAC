@@ -59,11 +59,11 @@ def figure_classes():
         "subj_obj2relation": subj_obj2realtion,
     }
     for pair in classes['subj_obj_pairs'].items():
-        print(pair)
+        print(pair[1])
     with open("classes.json", "w", encoding="utf-8") as f:
         json.dump(classes, f)
     print("classes figured")
 
 
-truncate_feature()
+#truncate_feature()
 figure_classes()

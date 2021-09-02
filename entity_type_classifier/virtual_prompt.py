@@ -28,24 +28,12 @@ class VirutalPrompt():
         class2embed = {}
         for name, labels in raw.items():
             raw_relation = ' '.join([labels[1], labels[2], labels[3]])
-            obj = labels[4]
-            subj = labels[0]
-            obj = 'website' if labels[4] == 'url' else obj
-            s_tokens = self.tokenizer.encode("the " + subj, add_special_tokens=False, return_tensors='pt')[0][1:]
-            s_embed = self.mlm.embeddings.word_embeddings(s_tokens)
-            embed_dim = s_embed.size(-1)
-            s_embed = s_embed.view(embed_dim)
-            o_tokens = self.tokenizer.encode("the " + obj, add_special_tokens=False, return_tensors='pt')[0][1:]
-            o_embed = self.mlm.embeddings.word_embeddings(o_tokens).view(embed_dim)
             rel_tokens = self.tokenizer.encode(raw_relation, add_special_tokens=False, return_tensors='pt')
             if rel_tokens.size(1) != self.rel_length:
-                rel_embed = self.standarize_rel(labels[0], obj, raw_relation).view(self.rel_length, embed_dim)
+                rel_embed = self.standarize_rel(labels[0], labels[4], raw_relation).view(self.rel_length, -1)
             else:
-                rel_embed = self.mlm.embeddings.word_embeddings(rel_tokens).view(self.rel_length, embed_dim)
-            temp_embed = torch.stack([s_embed] + [w for w in rel_embed] + [o_embed])
-            assert temp_embed.size(0) == self.rel_length + 2, print(labels)
-            # print(temp_embed.size())
-            class2embed[name] = temp_embed
+                rel_embed = self.mlm.embeddings.word_embeddings(rel_tokens).view(self.rel_length, -1)
+            class2embed[name] = rel_embed
         return class2embed
 
     def standarize_rel(self, raw_s, raw_o, raw_rel, ):
@@ -95,7 +83,7 @@ class VirutalPrompt():
             else:
                 pair2embed = []
                 for rel, id in rel_dict.items():
-                    rel_embed = self.class2embed[rel][1:-1]
+                    rel_embed = self.class2embed[rel]
                     assert rel_embed.size(0) == self.rel_length
                     pair2embed.append(rel_embed)
                 rel2id[self.id2subj_obj_pair[pair_id]] = rel_dict

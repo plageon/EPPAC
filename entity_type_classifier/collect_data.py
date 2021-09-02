@@ -32,7 +32,7 @@ class DictDataset(Dataset):
 class EntityPromptDataset(DictDataset):
 
     def __init__(self, predict=None, subj_obj_pair=None, path=None, name=None, tokenizer=None, virtual_prompt=None,
-                 features=None, rel_length=3, max_seq_length=256):
+                 features=None, rel_length=3, max_seq_length=512):
         self.rel2id = virtual_prompt.rel2id
         if 'no_relation' in self.rel2id:
             self.NA_NUM = self.rel2id['no_relation']
@@ -45,8 +45,10 @@ class EntityPromptDataset(DictDataset):
         if self.predict == "rel":
             self.subj_obj_pair = subj_obj_pair
         self.num_class = len(self.rel2id)
-        self.rel_length = rel_length
         self.virtual_prompt = virtual_prompt
+        self.subj_length = self.virtual_prompt.subj2embed[0].size(0)
+        self.obj_length = self.virtual_prompt.obj2embed[0].size(0)
+        self.rel_length = rel_length
 
         if features is None:
             self.max_seq_length = max_seq_length
@@ -106,7 +108,10 @@ class EntityPromptDataset(DictDataset):
             if self.predict == "subj":
                 label = self.virtual_prompt.subj2id[item['subj_type']]
             elif self.predict == "obj":
-                label = self.virtual_prompt.obj2id[item['obj_type']]
+                if item['obj_type'] not in self.virtual_prompt.obj2id:
+                    continue
+                else:
+                    label = self.virtual_prompt.obj2id[item['obj_type']]
             elif self.predict == "rel":
                 if item['relation'] not in self.virtual_prompt.subj_obj_pair2rel2id[self.subj_obj_pair]:
                     label = self.virtual_prompt.subj_obj_pair2rel2id[self.subj_obj_pair]['no_relation']
@@ -146,9 +151,9 @@ class EntityPromptDataset(DictDataset):
         # prompt =  [tokenizer.unk_token_id, tokenizer.unk_token_id] + \
         # 这里把template和实体mention串起来,类似于the person <e1> was member of the orgnization <e2>
         if self.predict == "subj":
-            prompt = e1 + hint_token + [tokenizer.mask_token_id]
+            prompt = e1 + hint_token + [tokenizer.mask_token_id] * self.subj_length
         elif self.predict == "obj":
-            prompt = e2 + hint_token + [tokenizer.mask_token_id]
+            prompt = e2 + hint_token + [tokenizer.mask_token_id] * self.obj_length
         elif self.predict == 'rel':
             prompt = e1 + [tokenizer.mask_token_id] * self.rel_length + e2
         else:
