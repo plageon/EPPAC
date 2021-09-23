@@ -9,14 +9,14 @@ import json
 
 from entity_type_classifier.build_model import ETypePromptModel
 from entity_type_classifier.collect_data import EntityPromptDataset, collect_raw_data
-from entity_type_classifier.optimizing import get_optimizer, get_optimizer4temp
+from entity_type_classifier.optimizing import get_optimizer, get_optimizer4temp, get_optimizer4dense
 from entity_type_classifier.utils import get_tokenizer_mlm, set_seed, get_raw_temps, evaluate, f1_score
 from entity_type_classifier.virtual_prompt import VirutalPrompt
 
 
 def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_pair_id=None, reload_data=True,
-                    train=True, vec_sim = None , rel_length = None,
-                    eval_kpl=False, evaluate_sub_model=True, learning_rate=None, lr_temp=None, num_train_epochs=None):
+                    train=True, vec_sim=None, rel_length=None, random=False,
+                    load_kpl=False, evaluate_sub_model=True, learning_rate=None, lr_temp=None, num_train_epochs=None):
     model_type = 'roberta'
     model_name = 'roberta-' + model_scale
     tokenizer, mlm = get_tokenizer_mlm(model_type, model_name)
@@ -28,17 +28,17 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
     gradient_accumulation_steps = 1
     max_seq_length = 512
     warmup_steps = 500
-    learning_rate = learning_rate
+
     num_train_epochs = num_train_epochs
     weight_decay = 1e-2
     adam_epsilon = 1e-6
-    lr_temp = lr_temp
+
     max_grad_norm = 1.0
     set_seed(123)
 
     raw_temp = get_raw_temps(data_dir)
     virtual_prompt = VirutalPrompt(raw_temp=raw_temp, tokenizer=tokenizer, mlm=mlm, rel_length=rel_length,
-                                   datadir=data_dir)
+                                   datadir=data_dir, random=random)
     if predict == 'subj' and len(virtual_prompt.subj2id) == 1:
         return 'None'
     subj_obj_pair = None
@@ -47,6 +47,25 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
     if predict == "rel":
         if virtual_prompt.subj_obj_pair2rel2id[subj_obj_pair] == None:
             return "None"
+
+    print(" time=", datetime.datetime.now(),
+          " dataset=", dataset_name,
+          " model_type=", model_type,
+          " model_name=", model_name,
+          " per_gpu_train_batch_size=", per_gpu_train_batch_size,
+          " gradient_accumulation_steps=", gradient_accumulation_steps,
+          " max_seq_length=", max_seq_length,
+          ' warmup_steps=', warmup_steps,
+          ' learning_rate=', learning_rate,
+          ' num_train_epochs=', num_train_epochs,
+          ' weight_decay=', weight_decay,
+          ' adam_epsilon=', adam_epsilon,
+          ' lr_temp=', lr_temp,
+          ' max_grad_norm=', max_grad_norm,
+          ' vector_similarity=', vec_sim,
+          ' relation length=', rel_length,
+          ' predicting=', predict,
+          ' subj_obj_pair=', subj_obj_pair, )
     # """
     if reload_data:
         dataset = EntityPromptDataset(
@@ -130,11 +149,11 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
         model.cuda()
     optimizer, scheduler = get_optimizer(model, train_dataloader, gradient_accumulation_steps, num_train_epochs,
                                          learning_rate, adam_epsilon, warmup_steps, weight_decay)  # 将lm做fine tune
-    optimizer4temp, scheduler4temp = get_optimizer4temp(model, lr_temp)
+    optimizer4temp, scheduler4temp = get_optimizer4dense(model, lr_temp) if vec_sim == "dense" else get_optimizer4temp(
+        model, lr_temp)
     criterion = nn.CrossEntropyLoss()
     mx_res = 0.0
     best_model_path = output_dir + "/best_models/" + predict + str(subj_obj_pair) + ".pkl"
-    best_model = dict()
     best_epoch = 0
     his = {
         'acc': [],
@@ -144,28 +163,9 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
         'ma_f1': [],
     }
 
-    if eval_kpl:
-        model.load_state_dict(torch.load(output_dir + "/" + 'parameter' + '4' + ".pkl"))
+    if load_kpl:
+        model.load_state_dict(torch.load(best_model_path))
     if train:
-        print(" time=", datetime.datetime.now(),
-              " dataset=", dataset_name,
-              " model_type=", model_type,
-              " model_name=", model_name,
-              " per_gpu_train_batch_size=", per_gpu_train_batch_size,
-              " gradient_accumulation_steps=", gradient_accumulation_steps,
-              " max_seq_length=", max_seq_length,
-              ' warmup_steps=', warmup_steps,
-              ' learning_rate=', learning_rate,
-              ' num_train_epochs=', num_train_epochs,
-              ' weight_decay=', weight_decay,
-              ' adam_epsilon=', adam_epsilon,
-              ' lr_temp=', lr_temp,
-              ' max_grad_norm=', max_grad_norm,
-              ' vector_similarity=', vec_sim,
-              ' relation length=', rel_length,
-              ' predicting=', predict,
-              ' subj_obj_pair=', subj_obj_pair, )
-
         for epoch in trange(int(num_train_epochs), desc="Epoch"):
             # '''
             model.train()  # 启用drop out和batch normalization
@@ -174,7 +174,8 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
             global_step = 0
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 for key, tensor in batch.items():
-                    batch[key] = tensor.cuda()
+                    if torch.cuda.device_count() > 1:
+                        batch[key] = tensor.cuda()
                 logits = model(**batch)  # 正向传播
 
                 loss = criterion(logits, batch['labels'])  # 分类的loss
@@ -202,7 +203,7 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
             his['mi_f1'].append(mi_f1)
             his['ma_f1'].append(ma_f1)
             # print("dev mi f1 ",mi_f1,"\ndev ma f1 ",ma_f1)
-            if mi_f1 > mx_res:
+            if mi_f1 > mx_res or (epoch + 1 == num_train_epochs and mx_res == 0):
                 mx_res = mi_f1
                 # best_model_path = output_dir + "/" + predict+str(subj_obj_pair)+str(datetime.datetime.now()) + 'parameter' + str(epoch) + ".pkl"
                 best_model = model.state_dict()
@@ -221,7 +222,8 @@ def train_sub_model(model_scale=None, dataset_name=None, predict=None, subj_obj_
         return best_model_path
 
 
-def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_model_path, obj_model_path, rel_model_path, eval_set):
+def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_model_path, obj_model_path, rel_model_path,
+                       eval_set):
     model_type = 'roberta'
     model_name = 'roberta-' + model_scale
     tokenizer, mlm = get_tokenizer_mlm(model_type, model_name)
@@ -317,8 +319,8 @@ def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_mode
         subj_obj_pair2data[pair] = []
 
     # predict relation type according to subj-obj pairs
-    total_gold, total_guess, total_correct = 0, 0, 0
-    # put data into seperate files first
+    total, total_neg, total_gold, total_guess, total_correct = 0, 0, 0, 0, 0
+    # put data into separate files first
     raw_data = collect_raw_data(data_dir + "/" + eval_set + "-truncate.json")
     for index, item in enumerate(raw_data):
         item_subj_pred = 0 if subj_model_path == 'None' else subj_pred[index]
@@ -327,7 +329,9 @@ def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_mode
         if subj_obj_pair not in virtual_prompt.subj_obj_pair2id.keys() or virtual_prompt.subj_obj_pair2rel2id[
             subj_obj_pair] == None or item['relation'] not in virtual_prompt.subj_obj_pair2rel2id[subj_obj_pair].keys():
             # at this point, our guess is no_relation
+            total += 1
             if item['relation'] == 'no_relation':
+                total_neg+=1
                 continue
             else:
                 total_gold += 1
@@ -335,10 +339,12 @@ def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_mode
             subj_obj_pair2data[subj_obj_pair].append(item)
     # load data from file
     for pair in virtual_prompt.subj_obj_pair2id.keys():
+        #print(pair, len(subj_obj_pair2data[pair]))
         subj_obj_pair_file = temp_dir + "/" + str(pair) + "-truncate.json"
         with open(subj_obj_pair_file, 'w', encoding='utf-8') as f:
             json.dump(subj_obj_pair2data[pair], f)
-    print(total_gold, total_guess, total_correct)
+
+    print(total, total_neg, total_gold, total_guess, total_correct)
     for index, pair in virtual_prompt.id2subj_obj_pair.items():
         if rel_model_path[index] == "None":
             # the prediction and gold-std is both no_relation for each item
@@ -361,7 +367,7 @@ def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_mode
         if torch.cuda.device_count() > 1:
             rel_model = torch.nn.DataParallel(rel_model)
             rel_model.cuda()
-        rel_model.load_state_dict(torch.load(rel_model_path[index]), strict=False)
+        rel_model.load_state_dict(torch.load(rel_model_path[index]), strict=True)
         rel_model.eval()
         rel_scores = []
         all_labels = []
@@ -383,12 +389,16 @@ def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_mode
             rel_pred = np.argmax(rel_scores, axis=-1)
             gold, guess, correct = f1_score(rel_pred, all_labels, rel_dataset.num_class, rel_dataset.NA_NUM,
                                             output_raw=True)
+            total+= len(all_labels)
+            neg=all_labels.tolist().count(rel_dataset.NA_NUM)
+            total_neg+=neg
             total_gold += gold
             total_guess += guess
             total_correct += correct
-            print(total_gold, total_guess, total_correct)
+            print(pair,len(all_labels), neg, gold, guess, correct)
+            #print(pair,total, total_neg, total_gold, total_guess, total_correct)
 
-    print(total_gold, total_guess, total_correct)
+    print(total, total_neg, total_gold, total_guess, total_correct)
     total_recall = total_correct / total_gold
     total_prec = total_correct / total_guess
     total_f1 = 2 * total_recall * total_prec / (total_recall + total_prec)
@@ -399,35 +409,80 @@ def evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, subj_mode
 
 
 if __name__ == "__main__":
+    LEARNING_RATE = {
+        "subj": [1e-6, 1e-6],
+        "obj": [1e-5, 1e-5],
+        "rel": {
+            0: [1e-5, 1e-5],  # ('organization', 'person') 7070
+            1: [1e-5, 1e-5],  # ('person', 'person') 13677
+            2: [3e-5, 1e-5],  # ('organization', 'organization') 8372
+            3: [3e-5, 1e-5],  # ('organization', 'number') 3458
+            4: [3e-5, 1e-5],  # ('organization', 'date') 4419
+            5: [3e-5, 1e-5],  # ('person', 'organization') 5001
+            6: [3e-5, 1e-5],  # ('person', 'nationality') 944
+            7: [3e-5, 1e-5],  # ('person', 'location') 1297
+            8: [3e-5, 1e-5],  # ('person', 'title') 4620
+            9: [3e-5, 1e-5],  # ('person', 'date') 3588
+            10: [3e-5, 1e-5],  # ('person', 'city') 1268
+            11: [3e-5, 1e-5],  # ('organization', 'misc') 1046
+            12: [3e-5, 1e-5],  # ('person', 'country') 1480
+            13: [3e-5, 1e-5],  # ('person', 'misc') 870
+            14: [3e-5, 1e-5],  # ('person', 'criminal_charge') 204
+            15: [3e-5, 1e-5],  # ('organization', 'city') 1358
+            16: [3e-5, 1e-5],  # ('organization', 'location') 1356
+            17: [3e-5, 1e-5],  # ('person', 'religion') 151
+            18: [3e-5, 1e-5],  # ('person', 'number') 2183
+            19: [3e-5, 1e-5],  # ('person', 'duration') 833
+            20: [3e-5, 1e-5],  # ('organization', 'religion') 211
+            21: [3e-5, 1e-5],  # ('organization', 'url') 194
+            22: [3e-5, 1e-5],  # ('person', 'state_or_province') 927
+            23: [3e-5, 1e-5],  # ('organization', 'country') 2197
+            24: [3e-5, 1e-5],  # ('organization', 'state_or_province') 672
+            25: [3e-5, 1e-5],  # ('organization', 'ideology') 205
+            26: [3e-5, 1e-5],  # ('person', 'cause_of_death') 496
+        },
+    }
     SUBJ = False
     OBJ = False
     REL = True
     EVAL = True
     model_scale = "base"
-    dataset_name = "tacrev"
+    dataset_name = "tacred"
     vec_sim = "mm"
-    rel_length = 2
+    rel_length = 3
+    random = False
+    num_epoch = 1
     eval_set = "test"
     model_path = "./results/" + dataset_name + "/best-models.txt"
-    learning_rate = 3e-5 if model_scale == "base" else 1e-4
-    lr_temp = 1e-5 if model_scale == "base" else 3e-5
-    num_epoch = 5
+    # learning_rate = 1e-6 if model_scale == "base" else 1e-4
+    # lr_temp = 1e-6 if model_scale == "base" else 3e-5
     if SUBJ:
-        subj_model = train_sub_model(vec_sim=vec_sim,rel_length=rel_length,model_scale=model_scale, dataset_name=dataset_name, predict='subj',
-                                     learning_rate=learning_rate, lr_temp=lr_temp, num_train_epochs=num_epoch)
+        learning_rate = LEARNING_RATE["subj"][0] if model_scale == "base" else 1e-4
+        lr_temp = LEARNING_RATE["subj"][1] if model_scale == "base" else 3e-5
+        subj_model = train_sub_model(vec_sim=vec_sim, rel_length=rel_length, model_scale=model_scale,
+                                     dataset_name=dataset_name, predict='subj',
+                                     learning_rate=learning_rate, lr_temp=lr_temp, num_train_epochs=num_epoch,
+                                     random=random, )
         with open(model_path, 'a', encoding='utf-8') as f:
             f.write(subj_model + "\n")
     if OBJ:
-        obj_model = train_sub_model(vec_sim=vec_sim,rel_length=rel_length,model_scale=model_scale, dataset_name=dataset_name, predict='obj',
-                                    learning_rate=learning_rate, lr_temp=lr_temp, num_train_epochs=num_epoch)
+        learning_rate = LEARNING_RATE["obj"][0] if model_scale == "base" else 1e-4
+        lr_temp = LEARNING_RATE["obj"][1] if model_scale == "base" else 3e-5
+        obj_model = train_sub_model(vec_sim=vec_sim, rel_length=rel_length, model_scale=model_scale,
+                                    dataset_name=dataset_name, predict='obj',
+                                    learning_rate=learning_rate, lr_temp=lr_temp, num_train_epochs=num_epoch * 6,
+                                    random=random, )
         with open(model_path, 'a', encoding='utf-8') as f:
             f.write(obj_model + "\n")
     if REL:
         rel_models = []
-        for subj_obj_pair_id in range(0, 27):
-            rel_model = train_sub_model(vec_sim=vec_sim,rel_length=rel_length,model_scale=model_scale, dataset_name=dataset_name, predict='rel',
+        for subj_obj_pair_id in range(2, 27):
+            learning_rate = LEARNING_RATE["rel"][subj_obj_pair_id][0] if model_scale == "base" else 1e-4
+            lr_temp = LEARNING_RATE["rel"][subj_obj_pair_id][1] if model_scale == "base" else 3e-5
+            rel_model = train_sub_model(vec_sim=vec_sim, rel_length=rel_length, model_scale=model_scale,
+                                        dataset_name=dataset_name, predict='rel',
                                         subj_obj_pair_id=subj_obj_pair_id, learning_rate=learning_rate, lr_temp=lr_temp,
-                                        num_train_epochs=num_epoch * 3)
+                                        num_train_epochs=num_epoch * 15, random=random, )
             rel_models.append(rel_model)
             with open(model_path, 'a', encoding='utf-8') as f:
                 f.write(rel_model + "\n")
@@ -438,4 +493,4 @@ if __name__ == "__main__":
                 line = line.rstrip()
                 if len(line) > 0:
                     models.append(line)
-        evaluate_sub_model(vec_sim,rel_length,model_scale, dataset_name, models[0], models[1], models[2:], eval_set)
+        evaluate_sub_model(vec_sim, rel_length, model_scale, dataset_name, models[0], models[1], models[2:], eval_set)

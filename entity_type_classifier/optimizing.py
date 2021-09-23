@@ -31,3 +31,9 @@ def get_optimizer4temp(model, lr_temp):
     optimizer = torch.optim.SGD([{'params': cur_model.label2embed}], lr=lr_temp, momentum=0.9)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
     return optimizer, scheduler
+
+def get_optimizer4dense(model,lr_temp):
+    cur_model = model.module if hasattr(model, 'module') else model
+    optimizer=torch.optim.SGD([{'params':cur_model.linear.parameters()}],lr=lr_temp,momentum=0.9)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+    return optimizer, scheduler

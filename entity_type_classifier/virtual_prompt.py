@@ -3,11 +3,12 @@ import json
 
 
 class VirutalPrompt():
-    def __init__(self, raw_temp=None, tokenizer=None, mlm=None, datadir=None, rel_length=2):
+    def __init__(self, raw_temp=None, tokenizer=None, mlm=None, datadir=None, rel_length=None,random=False):
         self.tokenizer = tokenizer
         self.mlm = mlm
         self.rel_length = rel_length
         self.temp = raw_temp
+        self.random=random
 
         with open(datadir + '/classes.json', 'r', encoding='utf-8') as f:
             self.classes = json.loads(f.read())
@@ -27,13 +28,16 @@ class VirutalPrompt():
     def initialize_temp(self, raw):
         class2embed = {}
         for name, labels in raw.items():
-            raw_relation = ' '.join([labels[1], labels[2], labels[3]])
-            rel_tokens = self.tokenizer.encode(raw_relation, add_special_tokens=False, return_tensors='pt')
-            if rel_tokens.size(1) != self.rel_length:
-                rel_embed = self.standarize_rel(labels[0], labels[4], raw_relation).view(self.rel_length, -1)
+            if self.random:
+                class2embed[name]=torch.rand(self.rel_length,768)/10
             else:
-                rel_embed = self.mlm.embeddings.word_embeddings(rel_tokens).view(self.rel_length, -1)
-            class2embed[name] = rel_embed
+                raw_relation = ' '.join([labels[1], labels[2], labels[3]])
+                rel_tokens = self.tokenizer.encode(raw_relation, add_special_tokens=False, return_tensors='pt')
+                if rel_tokens.size(1) != self.rel_length:
+                    rel_embed = self.standarize_rel(labels[0], labels[4], raw_relation).view(self.rel_length, -1)
+                else:
+                    rel_embed = self.mlm.embeddings.word_embeddings(rel_tokens).view(self.rel_length, -1)
+                class2embed[name] = rel_embed
         return class2embed
 
     def standarize_rel(self, raw_s, raw_o, raw_rel, ):
@@ -63,13 +67,19 @@ class VirutalPrompt():
             'state_or_province': 'state',
         }
         for type, id in self.classes['subj_types'].items():
-            s_token = self.tokenizer.encode("the " + type, add_special_tokens=False, return_tensors='pt')[0][1:]
-            subj2embed[id] = self.mlm.embeddings.word_embeddings(s_token)
+            if self.random:
+                subj2embed[id] = torch.rand(1,768)/10
+            else:
+                s_token = self.tokenizer.encode("the " + type, add_special_tokens=False, return_tensors='pt')[0][1:]
+                subj2embed[id] = self.mlm.embeddings.word_embeddings(s_token)
         for type, id in self.classes['obj_types'].items():
             if '_' in type:
                 type = obj_truncate[type]
-            o_token = self.tokenizer.encode("the " + type, add_special_tokens=False, return_tensors='pt')[0][1:]
-            obj2embed[id] = self.mlm.embeddings.word_embeddings(o_token)
+            if self.random:
+                obj2embed[id]=torch.rand(1,768)/10
+            else:
+                o_token = self.tokenizer.encode("the " + type, add_special_tokens=False, return_tensors='pt')[0][1:]
+                obj2embed[id] = self.mlm.embeddings.word_embeddings(o_token)
         return subj2embed, obj2embed
 
     def rel2embed(self):

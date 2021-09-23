@@ -1,4 +1,5 @@
 import torch
+from torch.nn import functional as F
 
 
 class ETypePromptModel(torch.nn.Module):
@@ -7,6 +8,7 @@ class ETypePromptModel(torch.nn.Module):
         super().__init__()
         self.predict = predict
         self.mlm = mlm
+        self.similarity = similarity
         if self.predict == "subj":
             self.num_classes = len(virtualprompt.subj2embed)
             self.label2embed = torch.nn.Parameter(
@@ -24,9 +26,14 @@ class ETypePromptModel(torch.nn.Module):
             self.len_label = self.label2embed.size(1)
         else:
             raise ValueError("unknown prediction type")
-
-        self.cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-        self.similarity = similarity
+        self.linear = torch.nn.Sequential(
+            torch.nn.Linear(self.len_label * 768, 512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, self.num_classes)
+        )
+        #self.softmax = torch.nn.Softmax(dim=1)
+        self.norm = torch.nn.LayerNorm(self.num_classes)
+        self.cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
 
     def forward(self, input_ids, attention_mask, token_type_ids, mlm_labels, labels):
         embeddings = self.mlm.embeddings.word_embeddings(input_ids)  # 预训练模型的embedding
@@ -34,8 +41,25 @@ class ETypePromptModel(torch.nn.Module):
                                  attention_mask=attention_mask,
                                  token_type_ids=token_type_ids).last_hidden_state
         # print(hidden_states)
-        hidden_states_mask = hidden_states[mlm_labels >= 0].view(hidden_states.size(0), self.len_label, -1)
-        logits = self.vector_similarity(hidden_states_mask)
+
+        if self.similarity == "dense":
+            hidden_states_mask = hidden_states[mlm_labels >= 0].view(hidden_states.size(0), -1)
+            logits = self.linear(hidden_states_mask)
+        elif self.similarity == "cdist1":
+            hidden_states_mask = hidden_states[mlm_labels >= 0].view(hidden_states.size(0), -1)
+            embedmatrix = self.label2embed.view(self.num_classes, -1)
+            out = torch.cdist(hidden_states_mask, embedmatrix, p=1)
+            normalized_out = self.norm(out)
+            logits = -normalized_out
+        elif self.similarity == "cdist2":
+            hidden_states_mask = hidden_states[mlm_labels >= 0].view(hidden_states.size(0), -1)
+            embedmatrix = self.label2embed.view(self.num_classes, -1)
+            out = torch.cdist(hidden_states_mask, embedmatrix, p=2)
+            normalized_out = self.norm(out)
+            logits = -normalized_out
+        else:
+            hidden_states_mask = hidden_states[mlm_labels >= 0].view(hidden_states.size(0), self.len_label, -1)
+            logits = self.vector_similarity(hidden_states_mask)
         return logits  # 每个可能出现mask的位置的list
 
     def vector_similarity(self, batchs):
@@ -50,10 +74,9 @@ class ETypePromptModel(torch.nn.Module):
                        in range(self.num_classes)]
             else:
                 raise ValueError("unknown similiarty")
-            out = torch.cat(out, 0)
-            logits.append(out)
+            logits.append(torch.cat(out, 0))
         logits = torch.stack(logits, 0)
-
+        #logits=self.norm(logits)
         return logits
 
 

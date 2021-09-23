@@ -88,9 +88,9 @@ class EntityPromptDataset(DictDataset):
         res['labels'] = []
 
         for index, item in enumerate(tqdm(data)):
-            subj_obj_pair = (item['subj_type'], item['obj_type'])
-            if self.predict == 'rel' and not subj_obj_pair == self.subj_obj_pair:
-                continue
+            #subj_obj_pair = (item['subj_type'], item['obj_type'])
+            #if self.predict == 'rel' and not subj_obj_pair == self.subj_obj_pair:
+            #    continue
             input_ids, token_type_ids = self.tokenize(item, tokenizer)
             attention_mask = [1] * len(input_ids)
             padding_length = self.max_seq_length - len(input_ids)
