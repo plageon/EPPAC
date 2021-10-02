@@ -1,2 +1,2 @@
-# Centralizing Algorithm with Entity Pre-typing for Relation Classification
+# EPPAC: Entity Pre-typing Relation Classification with Prompt Answer Centralizing
 relation classify
