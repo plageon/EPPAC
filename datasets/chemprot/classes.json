@@ -1,0 +1,45 @@
+{
+  "subj_types": {
+    "chemical": 0
+  },
+  "obj_types": {
+    "gene-y": 0,
+    "gene-n": 1
+  },
+  "relation_classes": {
+    "cpr:4": 0,
+    "cpr:5": 1,
+    "cpr:6": 2,
+    "no_relation": 3,
+    "cpr:9": 4,
+    "cpr:3": 5
+  },
+  "subj_obj_pairs": {
+    "0": [
+      "chemical",
+      "gene-y"
+    ],
+    "1": [
+      "chemical",
+      "gene-n"
+    ]
+  },
+  "subj_obj2relation": {
+    "0": {
+      "cpr:4": 0,
+      "cpr:5": 1,
+      "cpr:6": 2,
+      "no_relation": 3,
+      "cpr:9": 4,
+      "cpr:3": 5
+    },
+    "1": {
+      "cpr:4": 0,
+      "no_relation": 1,
+      "cpr:5": 2,
+      "cpr:3": 3,
+      "cpr:9": 4,
+      "cpr:6": 5
+    }
+  }
+}

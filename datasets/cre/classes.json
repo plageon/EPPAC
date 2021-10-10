@@ -1,0 +1,229 @@
+{
+  "subj_types": {
+    "organization": 0,
+    "person": 1
+  },
+  "obj_types": {
+    "person": 0,
+    "number": 1,
+    "date": 2,
+    "location": 3,
+    "organization": 4,
+    "country": 5,
+    "city": 6,
+    "religion": 7,
+    "title": 8,
+    "state_or_province": 9,
+    "nationality": 10
+  },
+  "relation_classes": {
+    "org:founded_by": 0,
+    "no_relation": 1,
+    "per:age": 2,
+    "per:date_of_birth": 3,
+    "org:founded": 4,
+    "per:schools_attended": 5,
+    "per:employee_of": 6,
+    "org:country_of_headquarters": 7,
+    "per:alternate_names": 8,
+    "per:children": 9,
+    "per:city_of_birth": 10,
+    "per:city_of_death": 11,
+    "per:date_of_death": 12,
+    "per:religion": 13,
+    "per:spouse": 14,
+    "org:alternate_names": 15,
+    "per:title": 16,
+    "org:parents": 17,
+    "per:other_family": 18,
+    "per:stateorprovince_of_birth": 19,
+    "org:political/religious_affiliation": 20,
+    "per:siblings": 21,
+    "per:origin": 22,
+    "per:cities_of_residence": 23,
+    "org:city_of_headquarters": 24,
+    "per:countries_of_residence": 25,
+    "per:parents": 26,
+    "per:stateorprovinces_of_residence": 27,
+    "org:top_members/employees": 28,
+    "org:stateorprovince_of_headquarters": 29,
+    "org:number_of_employees/members": 30
+  },
+  "subj_obj_pairs": {
+    "0": [
+      "organization",
+      "person"
+    ],
+    "1": [
+      "person",
+      "person"
+    ],
+    "2": [
+      "person",
+      "number"
+    ],
+    "3": [
+      "person",
+      "date"
+    ],
+    "4": [
+      "person",
+      "location"
+    ],
+    "5": [
+      "organization",
+      "date"
+    ],
+    "6": [
+      "organization",
+      "location"
+    ],
+    "7": [
+      "person",
+      "organization"
+    ],
+    "8": [
+      "organization",
+      "organization"
+    ],
+    "9": [
+      "organization",
+      "country"
+    ],
+    "10": [
+      "person",
+      "city"
+    ],
+    "11": [
+      "person",
+      "religion"
+    ],
+    "12": [
+      "person",
+      "title"
+    ],
+    "13": [
+      "person",
+      "state_or_province"
+    ],
+    "14": [
+      "organization",
+      "religion"
+    ],
+    "15": [
+      "person",
+      "nationality"
+    ],
+    "16": [
+      "organization",
+      "city"
+    ],
+    "17": [
+      "person",
+      "country"
+    ],
+    "18": [
+      "organization",
+      "state_or_province"
+    ],
+    "19": [
+      "organization",
+      "number"
+    ]
+  },
+  "subj_obj2relation": {
+    "0": {
+      "org:founded_by": 0,
+      "no_relation": 1,
+      "org:top_members/employees": 2
+    },
+    "1": {
+      "no_relation": 0,
+      "org:founded_by": 1,
+      "per:alternate_names": 2,
+      "per:children": 3,
+      "per:spouse": 4,
+      "per:other_family": 5,
+      "per:siblings": 6,
+      "per:parents": 7
+    },
+    "2": {
+      "per:age": 0,
+      "no_relation": 1
+    },
+    "3": {
+      "no_relation": 0,
+      "per:date_of_birth": 1,
+      "org:founded": 2,
+      "per:date_of_death": 3
+    },
+    "4": {
+      "no_relation": 0
+    },
+    "5": {
+      "no_relation": 0,
+      "org:founded": 1
+    },
+    "6": {
+      "no_relation": 0
+    },
+    "7": {
+      "per:schools_attended": 0,
+      "no_relation": 1,
+      "per:employee_of": 2
+    },
+    "8": {
+      "no_relation": 0,
+      "per:schools_attended": 1,
+      "org:alternate_names": 2,
+      "org:parents": 3
+    },
+    "9": {
+      "org:country_of_headquarters": 0,
+      "no_relation": 1
+    },
+    "10": {
+      "per:city_of_birth": 0,
+      "no_relation": 1,
+      "per:city_of_death": 2,
+      "per:cities_of_residence": 3
+    },
+    "11": {
+      "per:religion": 0,
+      "no_relation": 1
+    },
+    "12": {
+      "per:title": 0,
+      "no_relation": 1
+    },
+    "13": {
+      "per:stateorprovince_of_birth": 0,
+      "no_relation": 1,
+      "per:stateorprovinces_of_residence": 2
+    },
+    "14": {
+      "org:political/religious_affiliation": 0,
+      "no_relation": 1
+    },
+    "15": {
+      "per:origin": 0,
+      "no_relation": 1
+    },
+    "16": {
+      "org:city_of_headquarters": 0,
+      "no_relation": 1
+    },
+    "17": {
+      "per:countries_of_residence": 0,
+      "no_relation": 1
+    },
+    "18": {
+      "org:stateorprovince_of_headquarters": 0,
+      "no_relation": 1
+    },
+    "19": {
+      "no_relation": 0,
+      "org:number_of_employees/members": 1
+    }
+  }
+}

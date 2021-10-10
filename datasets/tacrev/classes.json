@@ -1,0 +1,334 @@
+{
+  "subj_types": {
+    "organization": 0,
+    "person": 1
+  },
+  "obj_types": {
+    "person": 0,
+    "organization": 1,
+    "number": 2,
+    "date": 3,
+    "nationality": 4,
+    "location": 5,
+    "title": 6,
+    "city": 7,
+    "misc": 8,
+    "country": 9,
+    "criminal_charge": 10,
+    "religion": 11,
+    "duration": 12,
+    "url": 13,
+    "state_or_province": 14,
+    "ideology": 15,
+    "cause_of_death": 16
+  },
+  "relation_classes": {
+    "org:founded_by": 0,
+    "no_relation": 1,
+    "per:employee_of": 2,
+    "org:alternate_names": 3,
+    "per:cities_of_residence": 4,
+    "per:children": 5,
+    "per:title": 6,
+    "per:siblings": 7,
+    "per:religion": 8,
+    "per:age": 9,
+    "org:website": 10,
+    "per:stateorprovinces_of_residence": 11,
+    "org:member_of": 12,
+    "org:top_members/employees": 13,
+    "per:countries_of_residence": 14,
+    "org:city_of_headquarters": 15,
+    "org:members": 16,
+    "org:country_of_headquarters": 17,
+    "per:spouse": 18,
+    "org:stateorprovince_of_headquarters": 19,
+    "org:number_of_employees/members": 20,
+    "org:parents": 21,
+    "org:subsidiaries": 22,
+    "per:origin": 23,
+    "org:political/religious_affiliation": 24,
+    "per:other_family": 25,
+    "per:stateorprovince_of_birth": 26,
+    "org:dissolved": 27,
+    "per:date_of_death": 28,
+    "org:shareholders": 29,
+    "per:alternate_names": 30,
+    "per:parents": 31,
+    "per:schools_attended": 32,
+    "per:cause_of_death": 33,
+    "per:city_of_death": 34,
+    "per:stateorprovince_of_death": 35,
+    "org:founded": 36,
+    "per:country_of_birth": 37,
+    "per:date_of_birth": 38,
+    "per:city_of_birth": 39,
+    "per:charges": 40,
+    "per:country_of_death": 41
+  },
+  "subj_obj_pairs": {
+    "0": [
+      "organization",
+      "person"
+    ],
+    "1": [
+      "person",
+      "person"
+    ],
+    "2": [
+      "organization",
+      "organization"
+    ],
+    "3": [
+      "organization",
+      "number"
+    ],
+    "4": [
+      "organization",
+      "date"
+    ],
+    "5": [
+      "person",
+      "organization"
+    ],
+    "6": [
+      "person",
+      "nationality"
+    ],
+    "7": [
+      "person",
+      "location"
+    ],
+    "8": [
+      "person",
+      "title"
+    ],
+    "9": [
+      "person",
+      "date"
+    ],
+    "10": [
+      "person",
+      "city"
+    ],
+    "11": [
+      "organization",
+      "misc"
+    ],
+    "12": [
+      "person",
+      "country"
+    ],
+    "13": [
+      "person",
+      "misc"
+    ],
+    "14": [
+      "person",
+      "criminal_charge"
+    ],
+    "15": [
+      "organization",
+      "city"
+    ],
+    "16": [
+      "organization",
+      "location"
+    ],
+    "17": [
+      "person",
+      "religion"
+    ],
+    "18": [
+      "person",
+      "number"
+    ],
+    "19": [
+      "person",
+      "duration"
+    ],
+    "20": [
+      "organization",
+      "religion"
+    ],
+    "21": [
+      "organization",
+      "url"
+    ],
+    "22": [
+      "person",
+      "state_or_province"
+    ],
+    "23": [
+      "organization",
+      "country"
+    ],
+    "24": [
+      "organization",
+      "state_or_province"
+    ],
+    "25": [
+      "organization",
+      "ideology"
+    ],
+    "26": [
+      "person",
+      "cause_of_death"
+    ]
+  },
+  "subj_obj2relation": {
+    "0": {
+      "org:founded_by": 0,
+      "no_relation": 1,
+      "org:top_members/employees": 2,
+      "org:shareholders": 3
+    },
+    "1": {
+      "no_relation": 0,
+      "per:children": 1,
+      "per:siblings": 2,
+      "per:spouse": 3,
+      "per:other_family": 4,
+      "per:alternate_names": 5,
+      "per:parents": 6
+    },
+    "2": {
+      "no_relation": 0,
+      "org:alternate_names": 1,
+      "org:member_of": 2,
+      "org:members": 3,
+      "org:parents": 4,
+      "org:subsidiaries": 5,
+      "org:shareholders": 6
+    },
+    "3": {
+      "no_relation": 0,
+      "org:number_of_employees/members": 1
+    },
+    "4": {
+      "no_relation": 0,
+      "org:dissolved": 1,
+      "org:founded": 2
+    },
+    "5": {
+      "per:employee_of": 0,
+      "no_relation": 1,
+      "per:schools_attended": 2
+    },
+    "6": {
+      "no_relation": 0,
+      "per:countries_of_residence": 1,
+      "per:origin": 2,
+      "per:country_of_death": 3,
+      "per:country_of_birth": 4
+    },
+    "7": {
+      "no_relation": 0,
+      "per:cities_of_residence": 1,
+      "per:stateorprovinces_of_residence": 2,
+      "per:countries_of_residence": 3,
+      "per:city_of_death": 4,
+      "per:country_of_birth": 5,
+      "per:employee_of": 6,
+      "per:country_of_death": 7,
+      "per:city_of_birth": 8,
+      "per:stateorprovince_of_death": 9,
+      "per:origin": 10
+    },
+    "8": {
+      "no_relation": 0,
+      "per:title": 1
+    },
+    "9": {
+      "no_relation": 0,
+      "per:date_of_death": 1,
+      "per:date_of_birth": 2
+    },
+    "10": {
+      "per:cities_of_residence": 0,
+      "no_relation": 1,
+      "per:city_of_death": 2,
+      "per:city_of_birth": 3
+    },
+    "11": {
+      "no_relation": 0,
+      "org:alternate_names": 1
+    },
+    "12": {
+      "no_relation": 0,
+      "per:countries_of_residence": 1,
+      "per:origin": 2,
+      "per:country_of_birth": 3,
+      "per:country_of_death": 4
+    },
+    "13": {
+      "no_relation": 0,
+      "per:alternate_names": 1
+    },
+    "14": {
+      "no_relation": 0,
+      "per:charges": 1
+    },
+    "15": {
+      "no_relation": 0,
+      "org:city_of_headquarters": 1
+    },
+    "16": {
+      "no_relation": 0,
+      "org:stateorprovince_of_headquarters": 1,
+      "org:city_of_headquarters": 2,
+      "org:country_of_headquarters": 3,
+      "org:member_of": 4,
+      "org:subsidiaries": 5,
+      "org:parents": 6
+    },
+    "17": {
+      "per:religion": 0,
+      "no_relation": 1
+    },
+    "18": {
+      "per:age": 0,
+      "no_relation": 1
+    },
+    "19": {
+      "no_relation": 0,
+      "per:age": 1
+    },
+    "20": {
+      "no_relation": 0,
+      "org:political/religious_affiliation": 1
+    },
+    "21": {
+      "org:website": 0,
+      "no_relation": 1
+    },
+    "22": {
+      "per:stateorprovinces_of_residence": 0,
+      "no_relation": 1,
+      "per:stateorprovince_of_birth": 2,
+      "per:stateorprovince_of_death": 3
+    },
+    "23": {
+      "no_relation": 0,
+      "org:country_of_headquarters": 1,
+      "org:members": 2,
+      "org:member_of": 3,
+      "org:parents": 4,
+      "org:subsidiaries": 5
+    },
+    "24": {
+      "org:stateorprovince_of_headquarters": 0,
+      "no_relation": 1,
+      "org:member_of": 2,
+      "org:parents": 3
+    },
+    "25": {
+      "no_relation": 0,
+      "org:political/religious_affiliation": 1
+    },
+    "26": {
+      "no_relation": 0,
+      "per:cause_of_death": 1
+    }
+  }
+}

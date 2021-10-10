@@ -1,0 +1,6 @@
+0	cpr:3	chemical	is	activator	of	gene-n
+0	cpr:4	chemical	is	inhibitor	of	gene-n
+0	cpr:5	chemical	is	agonist	of	gene-n
+0	cpr:6	chemical	anti	agonist	of	gene-n
+0	cpr:9	chemical	is	produced	by	gene-n
+0	no_relation	chemical	is	irrelavant	to	gene-n
