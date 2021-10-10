@@ -1,3 +1,3 @@
-# Centralizing Algorithm with Entity Pre-typing for Relation Classification
+# Entity Pre-typing with Prompt Answer Centralizing for Relation Classification
 
-relation classify
+relation classification
